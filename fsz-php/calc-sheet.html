@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Раскрой листовых материалов — ФСЗ</title>
+<link rel="stylesheet" href="css/style.css?v=24">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="js/roboto-font.js"></script>
+<style>
+  .calc-page .hero-left { overflow-y: visible; }
+  .calc-page .hero-right { overflow-y: visible; }
+
+  /* Top row: Params | Details */
+  .calc-top-row {
+    display: grid; grid-template-columns: auto 1fr; gap: 12px;
+    margin-bottom: 12px; align-items: stretch;
+  }
+  @media (max-width: 1024px) { .calc-top-row { grid-template-columns: 1fr; } }
+
+  .params-box, .details-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; box-sizing: border-box; display: flex; flex-direction: column;
+  }
+  .params-box *, .details-box * { box-sizing: border-box; }
+
+  .box-title {
+    font-weight: 700; font-size: 15px; color: var(--text);
+    margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .params-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+
+  .input-group { display: flex; flex-direction: column; gap: 4px; }
+  .input-group label {
+    font-size: 11px; font-weight: 600; color: var(--text-light);
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .input-group input {
+    padding: 8px 10px; background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 8px; font-size: 14px; color: var(--text); outline: none;
+    transition: border-color 150ms, box-shadow 150ms; width: 100%;
+  }
+  .input-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
+  /* Details with scroll */
+  .details-scroll-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .details-header {
+    display: grid; grid-template-columns: 1fr 1fr 60px 28px; gap: 6px;
+    margin-bottom: 4px; padding: 0 8px; flex-shrink: 0;
+  }
+  .details-header span {
+    font-size: 10px; font-weight: 600; color: var(--text-light);
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .parts-list {
+    display: flex; flex-direction: column; gap: 6px;
+    overflow-y: auto; flex: 1; max-height: 194px;
+  }
+  .part-item {
+    display: grid; grid-template-columns: 1fr 1fr 60px 28px; gap: 6px;
+    align-items: center; padding: 6px 8px; background: var(--card-bg);
+    border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0;
+    transition: border-color 200ms, box-shadow 200ms;
+    cursor: pointer;
+  }
+  .part-item.new-highlight,
+  .part-item:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
+    background: var(--primary-light);
+  }
+  .part-item input {
+    padding: 6px 8px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; font-size: 13px; color: var(--text); outline: none; width: 100%;
+  }
+  .part-delete {
+    width: 24px; height: 24px; border-radius: 6px; background: transparent;
+    border: none; color: var(--text-light); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .part-delete:hover { background: #fee2e2; color: #dc2626; }
+
+  .details-footer { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; flex-shrink: 0; }
+  .btn-sm {
+    padding: 8px 14px; background: var(--card-bg); border: 1px dashed var(--border);
+    border-radius: 8px; font-size: 12px; font-weight: 500; color: var(--text-light); cursor: pointer;
+  }
+  .btn-sm:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+  .btn-calc-sm {
+    padding: 8px 16px; background: var(--primary); color: var(--surface);
+    font-size: 12px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer;
+  }
+  .btn-calc-sm:hover { background: var(--primary-hover); }
+  .btn-pdf-sm {
+    padding: 8px 16px; background: var(--text); color: var(--surface);
+    font-size: 12px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer;
+  }
+  .btn-pdf-sm:hover { background: var(--dark); }
+
+  /* Viz */
+  .viz-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; box-sizing: border-box;
+  }
+  .stats-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px;
+  }
+  @media (max-width: 640px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+  .stat-chip {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; text-align: center;
+  }
+  .stat-chip .val { font-weight: 700; font-size: 16px; color: var(--primary); }
+  .stat-chip .lab { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+  .canvas-wrap {
+    background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border);
+    overflow: auto; display: flex; align-items: flex-start; justify-content: center;
+  }
+  #cutCanvas { max-width: 100%; display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-light); }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+  .detail-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  .detail-table th, .detail-table td { padding: 6px 10px; text-align: left; font-size: 12px; border-bottom: 1px solid var(--border); }
+  .detail-table th { font-weight: 600; color: var(--text); background: var(--card-bg); }
+  .detail-table td { color: var(--text-light); }
+
+  /* Active calc */
+  .calc-item.active { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+</style>
+</head>
+<body class="texture-bg">
+
+<!-- HEADER -->
+<header class="header" id="header">
+  <div class="header-inner">
+    <a href="index.html" class="header-logo" style="display:flex;align-items:center;gap:12px;text-decoration:none;">
+      <img src="images/logo-v3.png" alt="ФСЗ" style="height:42px;width:auto;object-fit:contain;">
+      <div style="display:flex;flex-direction:column;line-height:1.15;">
+        <span style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:0.3px;">Фабрика</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:0.3px;">строительных</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:0.3px;">заготовок</span>
+      </div>
+    </a>
+    <nav class="header-nav">
+      <a href="index.html" class="nav-link">Товары и услуги</a>
+      <a href="articles.html" class="nav-link">Статьи</a>
+      <a href="contacts.html" class="nav-link">Контакты</a>
+    </nav>
+    <div class="header-right">
+      <div class="header-contacts">
+        <a href="tel:+74951234567" class="header-phone">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          +7 (495) 123-45-67
+        </a>
+        <div class="header-address">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          2-й шоссейный переулок, 21
+        </div>
+      </div>
+      <a href="cart.html" class="cart-icon" id="cartIcon" title="Корзина" style="margin-right:4px;text-decoration:none;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span class="cart-badge" id="cartBadge" style="display:none;">0</span>
+      </a>
+      <button class="btn-login">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>
+        Войти
+      </button>
+    </div>
+    <button class="mobile-btn" id="mobile-btn" aria-label="Меню">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="index.html">Товары и услуги</a>
+    <a href="articles.html">Статьи</a>
+    <a href="contacts.html">Контакты</a>
+  </div>
+</header>
+
+<!-- MAIN — hero-grid as index.html -->
+<section class="hero-section calc-page" id="categories">
+  <div class="hero-wrap">
+    <div class="hero-inner">
+      <div class="hero-grid" style="margin-top:0;">
+
+        <!-- Left: Params + Details + Viz -->
+        <div class="hero-left">
+
+          <!-- Top: Params | Details -->
+          <div class="calc-top-row">
+            <div class="params-box">
+              <div class="box-title">Параметры листа</div>
+              <div class="params-grid">
+                <div class="input-group"><label>Длина, мм</label><input type="number" id="sheetL" value="2500"></div>
+                <div class="input-group"><label>Ширина, мм</label><input type="number" id="sheetW" value="1250"></div>
+                <div class="input-group"><label>Прирезка по периметру, мм</label><input type="number" id="trim" value="0"></div>
+                <div class="input-group"><label>Ширина реза, мм</label><input type="number" id="kerf" value="3" step="0.5"></div>
+              </div>
+            </div>
+
+            <div class="details-box">
+              <div class="box-title">Детали</div>
+              <div class="details-scroll-wrap">
+                <div class="details-header"><span>Длина</span><span>Ширина</span><span>шт</span><span></span></div>
+                <div class="parts-list" id="partsList"></div>
+              </div>
+              <div class="details-footer">
+                <button class="btn-sm" id="btnAddPart">+ Добавить</button>
+                <button class="btn-calc-sm" id="btnCalculate">Рассчитать</button>
+                <button class="btn-pdf-sm" id="btnExportPDF">Скачать PDF</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom: Viz -->
+          <div class="viz-box">
+            <div class="stats-row" id="statsGrid" style="display:none;">
+              <div class="stat-chip"><div class="val" id="statSheets">0</div><div class="lab">Листов</div></div>
+              <div class="stat-chip"><div class="val" id="statParts">0</div><div class="lab">Деталей</div></div>
+              <div class="stat-chip"><div class="val" id="statEfficiency">0%</div><div class="lab">КИМ</div></div>
+              <div class="stat-chip"><div class="val" id="statWaste">0%</div><div class="lab">Отходы</div></div>
+            </div>
+            <div class="canvas-wrap"><canvas id="cutCanvas" width="900" height="500"></canvas></div>
+            <div class="legend" id="colorLegend"></div>
+            <div id="detailTableWrap" style="display:none;">
+              <div class="box-title" style="margin-top:12px;">Деталировка</div>
+              <table class="detail-table" id="detailTable">
+                <thead><tr><th>№</th><th>Размеры</th><th>Кол-во</th><th>Площадь</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right: Calculator Panel (same as index.html) -->
+        <div class="hero-right">
+          <div class="calc-panel">
+            <div class="calc-header">
+              <div class="calc-header-row">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d64d00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="2" y2="22"/></svg>
+                <span class="calc-header-title">Строительные калькуляторы</span>
+              </div>
+            </div>
+            <div class="calc-grid" id="calc-grid"></div>
+</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div>
+        <a href="index.html" class="footer-logo"><img src="images/logo-v3.png" alt="ФСЗ" style="height:36px;filter:brightness(0) invert(1);"></a>
+        <p class="footer-desc">Производство и продажа строительных материалов с 2014 года. Резка в размер, доставка, комплексные решения.</p>
+      </div>
+      <div><h4 class="footer-heading">Товары и услуги</h4><ul class="footer-list"><li><a href="index.html">Протяжка кабеля в гофру</a></li><li><a href="index.html">Лягушки из арматуры</a></li><li><a href="index.html">Лазерная резка металла</a></li><li><a href="index.html">Профтруба</a></li><li><a href="index.html">Резка профтрубы в размер</a></li><li><a href="index.html">Арматура</a></li></ul></div>
+      <div><h4 class="footer-heading" style="opacity:0;">&nbsp;</h4><ul class="footer-list"><li><a href="index.html">Резка арматуры в размер</a></li><li><a href="index.html">Доска обрезная</a></li><li><a href="index.html">Резка доски в размер</a></li><li><a href="index.html">Обработка огнебиозащитой</a></li><li><a href="index.html">Пластиковые окна</a></li><li><a href="index.html">Изготовление ферм</a></li></ul></div>
+      <div><h4 class="footer-heading">Контакты</h4><ul class="footer-contact"><li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg><a href="tel:+74951234567">+7 (495) 123-45-67</a></li><li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><a href="mailto:info@fsz.ru">info@fsz.ru</a></li><li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>2-й шоссейный переулок, 21</li><li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Пн–Пт: 8:00 – 19:00</li></ul></div>
+    </div>
+    <div class="footer-bottom"><p>&copy; 2025 Фабрика строительных заготовок. Все права защищены.</p></div>
+  </div>
+</footer>
+
+<!-- LOGIN MODAL -->
+<div class="modal-overlay" id="login-modal">
+  <div class="modal">
+    <button class="modal-close" id="modal-close" aria-label="Закрыть"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <h2 class="modal-title">Вход в аккаунт</h2>
+    <p class="modal-subtitle">Введите данные для входа</p>
+    <form id="login-form">
+      <div class="form-group"><label class="form-label" for="login-email">Email или телефон</label><input type="text" id="login-email" class="form-input" placeholder="example@mail.ru" required></div>
+      <div class="form-group"><label class="form-label" for="login-password">Пароль</label><input type="password" id="login-password" class="form-input" placeholder="••••••••" required></div>
+      <div class="form-row"><label class="form-checkbox"><input type="checkbox" checked><span>Запомнить меня</span></label><a href="#" class="form-link">Забыли пароль?</a></div>
+      <button type="submit" class="modal-btn">Войти</button>
+    </form>
+    <div class="modal-footer">Нет аккаунта? <a href="#">Зарегистрироваться</a></div>
+  </div>
+</div>
+
+<script>
+// Mobile menu
+document.getElementById('mobile-btn').addEventListener('click',()=>{document.getElementById('mobile-menu').classList.toggle('open');});
+// Active nav
+(function(){const path=window.location.pathname;const page=path.split('/').pop()||'index.html';document.querySelectorAll('.header-nav .nav-link').forEach(link=>{const href=link.getAttribute('href');if(page===''||page==='index.html'){if(href==='index.html')link.classList.add('active');}else if(href===page){link.classList.add('active');}});})();
+// Login modal
+(function(){const loginModal=document.getElementById('login-modal'),loginBtns=document.querySelectorAll('.btn-login'),modalClose=document.getElementById('modal-close');loginBtns.forEach(btn=>{btn.addEventListener('click',(e)=>{e.preventDefault();loginModal.classList.add('active');document.body.style.overflow='hidden';});});modalClose.addEventListener('click',()=>{loginModal.classList.remove('active');document.body.style.overflow='';});loginModal.addEventListener('click',(e)=>{if(e.target===loginModal){loginModal.classList.remove('active');document.body.style.overflow='';}});document.getElementById('login-form').addEventListener('submit',(e)=>{e.preventDefault();loginModal.classList.remove('active');document.body.style.overflow='';});document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&loginModal.classList.contains('active')){loginModal.classList.remove('active');document.body.style.overflow='';}});})();
+
+// ===== Sheet Cutting (Guillotine) — FULL LOGIC =====
+const COLORS=['#d64d00','#e8875a','#f0a97e','#f5c4a8','#f0e6dc','#5b6377','#8a93a8','#b0b7c9','#2a9d6c','#5cbf9a','#c9a227'];
+let parts=[{w:500,h:300,qty:2},{w:400,h:250,qty:3},{w:600,h:200,qty:2}];
+let _highlightedPart = null;
+
+function renderPartsList(){
+  document.getElementById('partsList').innerHTML=parts.map((p,i)=>`
+    <div class="part-item ${_highlightedPart===i?'new-highlight':''}" data-idx="${i}" onclick="focusPart(${i})">
+      <input type="number" placeholder="Дл" value="${p.w}" onchange="parts[${i}].w=+this.value" min="1" onclick="event.stopPropagation()">
+      <input type="number" placeholder="Шр" value="${p.h}" onchange="parts[${i}].h=+this.value" min="1" onclick="event.stopPropagation()">
+      <input type="number" placeholder="шт" value="${p.qty}" onchange="parts[${i}].qty=+this.value" min="1" onclick="event.stopPropagation()">
+      <button class="part-delete" onclick="event.stopPropagation();parts.splice(${i},1);if(_highlightedPart===i)_highlightedPart=null;else if(_highlightedPart!==null&&_highlightedPart>i)_highlightedPart--;renderPartsList();">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>`).join('');
+}
+function focusPart(i){_highlightedPart=i;renderPartsList();}
+document.getElementById('btnAddPart').addEventListener('click',()=>{parts.unshift({w:300,h:200,qty:1});_highlightedPart=0;renderPartsList();});
+document.addEventListener('click',(e)=>{if(!e.target.closest('.parts-list')&&!e.target.closest('#btnAddPart')){_highlightedPart=null;renderPartsList();}});
+
+function calculateCut(){
+  const sheetW=+document.getElementById('sheetW').value;
+  const sheetH=+document.getElementById('sheetL').value;
+  const kerf=+document.getElementById('kerf').value;
+  const trim=+document.getElementById('trim').value;
+  if(!sheetW||!sheetH)return;
+  const effW=sheetW-trim*2,effH=sheetH-trim*2;
+  if(effW<=0||effH<=0){alert('Прирезка слишком большая');return;}
+  const allParts=[];
+  parts.forEach((p,pi)=>{for(let i=0;i<p.qty;i++)allParts.push({w:+p.w,h:+p.h,color:COLORS[pi%COLORS.length],pi});});
+  const sheets=[];let unplaced=[...allParts];
+  while(unplaced.length>0){
+    const sheet={rects:[],free:[{x:0,y:0,w:effW,h:effH}]};
+    let placed=true;
+    while(placed&&unplaced.length>0){
+      placed=false;unplaced.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+      for(let ui=0;ui<unplaced.length;ui++){
+        const part=unplaced[ui];let bestIdx=-1,bestRot=false,bestWaste=Infinity;
+        for(let fi=0;fi<sheet.free.length;fi++){
+          const f=sheet.free[fi];
+          for(const rot of [false,true]){
+            const pw=rot?part.h:part.w,ph=rot?part.w:part.h;
+            if(pw<=f.w&&ph<=f.h){const waste=f.w*f.h-pw*ph;if(waste<bestWaste){bestWaste=waste;bestIdx=fi;bestRot=rot;}}
+          }
+        }
+        if(bestIdx>=0){
+          const f=sheet.free[bestIdx];const pw=bestRot?part.h:part.w,ph=bestRot?part.w:part.h;
+          sheet.rects.push({x:f.x,y:f.y,w:pw,h:ph,color:part.color,pi:part.pi});
+          sheet.free.splice(bestIdx,1);
+          if(pw+kerf<f.w)sheet.free.push({x:f.x+pw+kerf,y:f.y,w:f.w-pw-kerf,h:ph});
+          if(ph+kerf<f.h)sheet.free.push({x:f.x,y:f.y+ph+kerf,w:f.w,h:f.h-ph-kerf});
+          unplaced.splice(ui,1);placed=true;break;
+        }
+      }
+    }
+    sheets.push(sheet);
+  }
+  drawSheets(sheets,sheetW,sheetH,trim);
+  updateStats(sheets,sheetW,sheetH,allParts.length);
+  updateLegend();
+  updateDetailTable(sheets);
+  document.getElementById('statsGrid').style.display='grid';
+  document.getElementById('detailTableWrap').style.display='block';
+  window._lastSheets=sheets;
+  window._lastSheetSize={w:sheetW,h:sheetH};
+}
+
+function drawSheets(sheets,sheetW,sheetH,trim){
+  const canvas=document.getElementById('cutCanvas'),ctx=canvas.getContext('2d');
+  const wrap=canvas.parentElement;
+  const maxW=Math.max(wrap.clientWidth-32,400);
+  const pad=16,gapX=20,gapY=36;
+  const minCellW=200;
+  const cols=Math.max(1,Math.min(sheets.length,Math.floor((maxW-pad*2+gapX)/(minCellW+gapX))));
+  const rows=Math.ceil(sheets.length/cols);
+  const cellW=(maxW-pad*2-(cols-1)*gapX)/cols;
+  const scX=cellW/sheetW;
+  const maxHPerRow=Math.min(cellW*sheetH/sheetW,380);
+  const scY=maxHPerRow/sheetH;
+  const sc=Math.min(scX,scY);
+  const fw=sheetW*sc,fh=sheetH*sc;
+  const totalH=pad*2+rows*fh+(rows-1)*gapY;
+  canvas.width=Math.floor(maxW);
+  canvas.height=Math.floor(totalH);
+  ctx.fillStyle='#f7f6f4';ctx.fillRect(0,0,canvas.width,canvas.height);
+  sheets.forEach((sheet,si)=>{
+    const col=si%cols,row=Math.floor(si/cols);
+    const ox=pad+col*(cellW+gapX)+(cellW-fw)/2;
+    const oy=pad+row*(fh+gapY);
+    ctx.strokeStyle='#c8c4bf';ctx.lineWidth=1;ctx.strokeRect(ox-1,oy-1,fw+2,fh+2);
+    ctx.fillStyle='#fcfbfa';ctx.fillRect(ox,oy,fw,fh);
+    if(trim>0){
+      ctx.fillStyle='rgba(214,77,0,0.15)';
+      ctx.fillRect(ox,oy,fw,Math.ceil(trim*sc));
+      ctx.fillRect(ox,oy+fh-Math.ceil(trim*sc),fw,Math.ceil(trim*sc));
+      ctx.fillRect(ox,oy,Math.ceil(trim*sc),fh);
+      ctx.fillRect(ox+fw-Math.ceil(trim*sc),oy,Math.ceil(trim*sc),fh);
+    }
+    const kerf=+document.getElementById('kerf').value;
+    sheet.rects.forEach((r,ri)=>{
+      const k=Math.max(1,Math.ceil(kerf*sc));
+      const rx=ox+Math.floor(r.x*sc)+Math.ceil(trim*sc);
+      const ry=oy+Math.floor(r.y*sc)+Math.ceil(trim*sc);
+      const rw=Math.max(2,Math.floor(r.w*sc)-k);
+      const rh=Math.max(2,Math.floor(r.h*sc)-k);
+      ctx.fillStyle=r.color;ctx.fillRect(rx,ry,rw,rh);
+      ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;ctx.strokeRect(rx+.5,ry+.5,rw-1,rh-1);
+      // Kerf gap lines
+      if(kerf>0&&ri<sheet.rects.length-1){
+        ctx.strokeStyle='rgba(255,255,255,0.8)';
+        ctx.lineWidth=Math.max(1,k);
+        // Check right neighbor
+        const nr=sheet.rects.find(nr=>Math.abs(nr.y-r.y)<1&&nr.x>r.x);
+        if(nr){ctx.beginPath();ctx.moveTo(rx+rw,ry);ctx.lineTo(rx+rw,ry+rh);ctx.stroke();}
+        // Check bottom neighbor
+        const br=sheet.rects.find(br=>Math.abs(br.x-r.x)<1&&br.y>r.y);
+        if(br){ctx.beginPath();ctx.moveTo(rx,ry+rh);ctx.lineTo(rx+rw,ry+rh);ctx.stroke();}
+      }
+      if(rw>30&&rh>16){
+        ctx.fillStyle='#fff';ctx.font='bold 9px Arial,sans-serif';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.shadowColor='rgba(0,0,0,0.4)';ctx.shadowBlur=2;
+        ctx.fillText(`${r.w}×${r.h}`,rx+rw/2,ry+rh/2);
+        ctx.shadowBlur=0;ctx.textBaseline='alphabetic';ctx.textAlign='start';
+      }
+    });
+    ctx.fillStyle='#5b6377';ctx.font='600 11px Arial,sans-serif';ctx.fillText(`Лист ${si+1} — ${sheetW}×${sheetH} мм`,ox,oy-8);
+  });
+}
+
+function updateStats(sheets,sw,sh,totalParts){const sheetArea=sw*sh,totalSheets=sheets.length;let placedArea=0,placedCount=0;sheets.forEach(s=>s.rects.forEach(r=>{placedArea+=r.w*r.h;placedCount++;}));const eff=(placedArea/(totalSheets*sheetArea)*100).toFixed(1);document.getElementById('statSheets').textContent=totalSheets;document.getElementById('statParts').textContent=placedCount+'/'+totalParts;document.getElementById('statEfficiency').textContent=eff+'%';document.getElementById('statWaste').textContent=(100-eff).toFixed(1)+'%';}
+function updateLegend(){document.getElementById('colorLegend').innerHTML=parts.map((p,i)=>`<div class="legend-item"><div class="legend-dot" style="background:${COLORS[i%COLORS.length]}40;border:1px solid ${COLORS[i%COLORS.length]};"></div><span>${p.w}x${p.h} мм</span></div>`).join('');}
+function updateDetailTable(sheets){const tbody=document.querySelector('#detailTable tbody');const grouped={};sheets.forEach(s=>s.rects.forEach(r=>{const key=`${r.w}x${r.h}`;if(!grouped[key])grouped[key]={w:r.w,h:r.h,count:0,area:0};grouped[key].count++;grouped[key].area+=r.w*r.h;}));let html='',totalArea=0;Object.values(grouped).forEach((g,i)=>{totalArea+=g.area;html+=`<tr><td>${i+1}</td><td>${g.w} x ${g.h} мм</td><td>${g.count} шт</td><td>${(g.area/1000000).toFixed(3)} м²</td></tr>`;});html+=`<tr style="font-weight:600;"><td colspan="3">Итого</td><td>${(totalArea/1000000).toFixed(3)} м²</td></tr>`;tbody.innerHTML=html;}
+function exportPDF(){const{jsPDF}=window.jspdf;if(!jsPDF){alert('PDF не загружен');return;}const sheets=window._lastSheets,ss=window._lastSheetSize;if(!sheets)return;const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});if(window.addRobotoFont)window.addRobotoFont(doc);const now=new Date().toLocaleDateString('ru-RU');const pw=doc.internal.pageSize.getWidth();
+// Pre-calculate stats
+const sheetArea=ss.w*ss.h,totalSheets=sheets.length;let placedArea=0,placedCount=0;sheets.forEach(s=>s.rects.forEach(r=>{placedArea+=r.w*r.h;placedCount++;}));const eff=(placedArea/(totalSheets*sheetArea)*100).toFixed(1);
+// Header
+doc.setFillColor(214,77,0);doc.rect(0,0,pw,12,'F');doc.setFontSize(8);doc.setTextColor(255,255,255);doc.text('Фабрика строительных заготовок  |  +7 (495) 123-45-67  |  fsz.ru',15,8);
+doc.setFontSize(16);doc.setTextColor(38,42,51);doc.text('Карта раскроя листовых материалов',15,22);
+doc.setFontSize(9);doc.setTextColor(91,99,119);doc.text(`Дата: ${now}  |  Лист: ${ss.w} x ${ss.h} мм  |  Ширина реза: ${document.getElementById('kerf').value} мм  |  Прирезка: ${document.getElementById('trim').value} мм`,15,28);
+// Sheets visualization
+const cols=Math.min(sheets.length,3),cw=(pw-30-(cols-1)*5)/cols,scale=cw/ss.w;let y=30;
+sheets.forEach((sheet,si)=>{
+  if(y>180){doc.addPage('landscape');y=15;}
+  const col=si%cols,row=Math.floor(si/cols),ox=15+col*(cw+5),oy=y+row*(ss.h*scale+12);
+  doc.setFillColor(245,244,240);doc.rect(ox,oy,cw,ss.h*scale,'F');
+  doc.setDrawColor(200,196,191);doc.setLineWidth(0.3);doc.rect(ox,oy,cw,ss.h*scale,'S');
+  const kerf=+document.getElementById('kerf').value;
+  const trim=+document.getElementById('trim').value;
+  const kGap=kerf>0?Math.max(0.3,kerf*scale):0;
+  sheet.rects.forEach(r=>{
+    const rw=Math.max(0.5,r.w*scale-kGap),rh=Math.max(0.5,r.h*scale-kGap);
+    const rx=ox+(trim+r.x)*scale,ry=oy+(trim+r.y)*scale;
+    const rgb={r:parseInt(COLORS[r.pi%COLORS.length].slice(1,3),16),g:parseInt(COLORS[r.pi%COLORS.length].slice(3,5),16),b:parseInt(COLORS[r.pi%COLORS.length].slice(5,7),16)};
+    doc.setFillColor(rgb.r,rgb.g,rgb.b);doc.rect(rx,ry,rw,rh,'F');
+    if(kGap>0.5){doc.setFillColor(255,255,255);doc.rect(rx+rw,ry,kGap,rh,'F');doc.rect(rx,ry+rh,rw+kGap,kGap,'F');}
+    if(rw>18&&rh>8){doc.setFontSize(8);doc.setTextColor(255,255,255);doc.text(`${r.w}x${r.h}`,rx+rw/2,ry+rh/2+2.5,{align:'center'});}
+  });
+  doc.setFontSize(8);doc.setTextColor(91,99,119);doc.text(`Лист ${si+1} — ${ss.w} x ${ss.h} мм`,ox,oy-3);
+});
+// Stats page
+doc.addPage('landscape');doc.setFontSize(8);doc.setFillColor(214,77,0);doc.rect(0,0,pw,12,'F');doc.setTextColor(255,255,255);doc.text('Фабрика строительных заготовок',15,8);doc.setFontSize(14);doc.setTextColor(38,42,51);doc.text('Деталировка и статистика',15,22);
+doc.setFontSize(9);doc.setTextColor(91,99,119);doc.text(`Листов: ${totalSheets}  |  Деталей: ${placedCount}  |  КИМ: ${eff}%  |  Отходы: ${(100-eff).toFixed(1)}%`,15,28);
+// Group identical parts by size
+const grouped={};sheets.forEach(s=>s.rects.forEach(r=>{const key=`${r.w}x${r.h}`;if(!grouped[key])grouped[key]={w:r.w,h:r.h,count:0,area:0,pi:r.pi};grouped[key].count++;grouped[key].area+=r.w*r.h;}));
+const tableData=Object.values(grouped).map((g,i)=>[`${i+1}`,`${g.w} x ${g.h} мм`,`${g.count} шт`,`${(g.area/1000000).toFixed(3)} м²`]);const totalAll=Object.values(grouped).reduce((s,g)=>s+g.area,0);tableData.push(['','','Итого:',`${(totalAll/1000000).toFixed(3)} м²`]);
+if(doc.autoTable){doc.autoTable({head:[['№','Размеры','Кол-во','Площадь']],body:tableData,startY:33,theme:'grid',styles:{fontSize:9,cellPadding:3,font:'Roboto'},headStyles:{fillColor:[214,77,0],textColor:255,fontSize:10,font:'Roboto'},footStyles:{fillColor:[245,244,240],fontSize:9,font:'Roboto'}});}
+// Legend
+doc.setFontSize(10);doc.setTextColor(38,42,51);doc.text('Легенда:',15,doc.lastAutoTable?doc.lastAutoTable.finalY+12:180);let lx=15,ly=doc.lastAutoTable?doc.lastAutoTable.finalY+18:186;parts.forEach((p,i)=>{const c=COLORS[i%COLORS.length];doc.setFillColor(parseInt(c.slice(1,3),16),parseInt(c.slice(3,5),16),parseInt(c.slice(5,7),16));doc.rect(lx,ly,4,4,'F');doc.setFontSize(8);doc.setTextColor(91,99,119);doc.text(`${p.w}x${p.h} мм`,lx+6,ly+3);lx+=35;if(lx>pw-40){lx=15;ly+=8;}});
+doc.save('raskroy-list.pdf');}
+document.getElementById('btnCalculate').addEventListener('click',calculateCut);
+document.getElementById('btnExportPDF').addEventListener('click',exportPDF);
+renderPartsList();calculateCut();
+</script>
+<script src="js/data.v2.js?v=18"></script>
+<script src="js/cart.js?v=1"></script>
+<script src="js/main.js?v=18"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+      document.querySelectorAll('#calc-grid .calc-item').forEach(function(item) {
+        if (item.getAttribute('href') === 'calc-sheet.html') item.classList.add('active');
+      });
+    }, 50);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Корзина — ФСЗ</title>
+  <link rel="stylesheet" href="css/style.css?v=22">
+  <style>
+    .cart-page { padding: 24px 0px; max-width: 1280px; margin: 0 auto 80px; }
+    .cart-grid { display: grid; grid-template-columns: 1fr 300px; gap: 26px; }
+    .cart-left { display: flex; flex-direction: column; gap: 0; }
+    .cart-right { position: sticky; top: 100px; height: fit-content; }
+
+    .cart-header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+    }
+    .cart-select-all {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; font-weight: 500; color: var(--text);
+    }
+    .cart-select-all input {
+      width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;
+    }
+
+    .cart-item {
+      display: grid; grid-template-columns: 72px 1fr auto 98px 32px;
+      gap: 12px; align-items: center;
+      padding: 12px 16px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 12px;
+      transition: background 150ms; margin-bottom: 8px;
+    }
+    .cart-item:hover { background: var(--card-bg); }
+    .cart-item-img-wrap {
+      position: relative; width: 72px; height: 72px; flex-shrink: 0;
+    }
+    .cart-item-img {
+      width: 72px; height: 72px; border-radius: 8px;
+      object-fit: cover; background: var(--card-bg);
+      border: 1px solid var(--border);
+    }
+    .cart-item-checkbox {
+      position: absolute; top: 4px; right: 4px;
+      width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;
+      z-index: 2; margin: 0;
+    }
+    .cart-item-info { display: flex; flex-direction: column; gap: 2px; }
+    .cart-item-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .cart-item-unit { font-size: 11px; color: var(--text-light); }
+    .cart-item-price {
+      font-weight: 700; font-size: 14px; color: var(--primary); text-align: right;
+      padding-right: 8px;
+    }
+    .cart-item-qty {
+      display: inline-flex; align-items: center;
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; height: 32px;
+      width: 98px;
+    }
+    .cart-item-qty button {
+      width: 32px; height: 32px; background: transparent; border: none;
+      color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 150ms;
+    }
+    .cart-item-qty button:hover { background: var(--primary-light); color: var(--primary); }
+    .cart-item-qty span {
+      min-width: 36px; text-align: center; font-size: 12px; font-weight: 600;
+      border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+      padding: 0 4px;
+    }
+    .cart-item-delete {
+      width: 32px; height: 32px; border-radius: 8px; border: none;
+      background: transparent; color: var(--text-light); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 150ms;
+    }
+    .cart-item-delete:hover { background: #fee2e2; color: #dc2626; }
+
+    .cart-empty {
+      text-align: center; padding: 60px 20px; color: var(--text-light);
+    }
+    .cart-empty svg { margin-bottom: 16px; opacity: 0.4; }
+    .cart-empty h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+    .cart-empty p { font-size: 13px; margin-bottom: 24px; }
+    .cart-empty a { color: var(--primary); text-decoration: none; font-weight: 500; }
+
+    .calc-panel-cart {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .calc-panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .calc-panel-header h3 { font-size: 15px; font-weight: 600; color: var(--text); margin: 0; }
+    .calc-panel-toggle {
+      width: 28px; height: 28px; border-radius: 6px; border: none;
+      background: transparent; color: var(--text-light); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 150ms;
+    }
+    .calc-panel-toggle:hover { background: var(--primary-light); color: var(--primary); }
+    .calc-panel-toggle.rotated svg { transform: rotate(180deg); }
+
+    .calc-summary-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px; color: var(--text-light);
+    }
+    .calc-summary-row.total {
+      font-size: 16px; font-weight: 700; color: var(--text);
+      border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;
+    }
+    .calc-summary-row .calc-total-price { color: var(--primary); font-size: 18px; }
+
+    .calc-items-list {
+      display: none; flex-direction: column; gap: 8px;
+      max-height: 300px; overflow-y: auto;
+    }
+    .calc-items-list.open { display: flex; }
+    .calc-list-item {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--border);
+    }
+    .calc-list-item:last-child { border-bottom: none; }
+    .calc-list-item-name { color: var(--text); flex: 1; }
+    .calc-list-item-qty { color: var(--text-light); margin: 0 8px; }
+    .calc-list-item-price { color: var(--primary); font-weight: 600; }
+
+    .btn-checkout {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      height: 44px; border-radius: 10px; border: none;
+      background: var(--primary); color: #fff; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 150ms; text-decoration: none;
+    }
+    .btn-checkout:hover { background: #bf4400; }
+    .btn-checkout:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    @media (max-width: 900px) {
+      .cart-grid { grid-template-columns: 1fr; }
+      .cart-right { position: static; }
+      .cart-item { grid-template-columns: 32px 60px 1fr auto 100px 32px; gap: 8px; }
+      .cart-item-img { width: 60px; height: 60px; }
+      .cart-item-price { display: none; }
+    }
+  </style>
+</head>
+<body class="texture-bg">
+
+  <!-- Header (same as index.html) -->
+  <header class="header" id="header">
+    <div class="header-inner">
+      <a href="index.html" class="header-logo" style="display:flex;align-items:center;gap:12px;text-decoration:none;">
+        <img src="images/logo-v3.png" alt="ФСЗ" style="height:42px;width:auto;object-fit:contain;">
+        <div style="display:flex;flex-direction:column;line-height:1.15;">
+          <span style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:0.3px;">Фабрика</span>
+          <span style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:0.3px;">строительных</span>
+          <span style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:0.3px;">заготовок</span>
+        </div>
+      </a>
+
+      <nav class="header-nav">
+        <a href="index.html" class="nav-link">Товары и услуги</a>
+        <a href="articles.html" class="nav-link">Статьи</a>
+        <a href="contacts.html" class="nav-link">Контакты</a>
+      </nav>
+
+      <div class="header-right">
+        <div class="header-contacts">
+          <a href="tel:+74951234567" class="header-phone">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            +7 (495) 123-45-67
+          </a>
+          <div class="header-address">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            2-й шоссейный переулок, 21
+          </div>
+        </div>
+        <a href="cart.html" class="cart-icon" id="cartIcon" title="Корзина" style="margin-right:4px;text-decoration:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          <span class="cart-badge" id="cartBadge" style="display:none;">0</span>
+        </a>
+        <button class="btn-login">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>
+          Войти
+        </button>
+      </div>
+
+      <button class="mobile-btn" id="mobile-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#262a33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="mobile-menu" id="mobile-menu">
+      <a href="index.html">Товары и услуги</a>
+      <a href="articles.html">Статьи</a>
+      <a href="contacts.html">Контакты</a>
+      <div style="border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px;">
+        <a href="tel:+74951234567">+7 (495) 123-45-67</a>
+        <div style="padding: 10px 12px; font-size: 12px; color: var(--text-light);">2-й шоссейный переулок, 21</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="cart-page">
+    <div class="cart-grid">
+      <!-- Left: Cart Items -->
+      <div class="cart-left" id="cartItems"></div>
+
+      <!-- Right: Calculation Panel -->
+      <div class="cart-right">
+        <div class="calc-panel-cart">
+          <div class="calc-panel-header">
+            <h3>Расчёт</h3>
+            <button class="calc-panel-toggle" id="calcToggle" onclick="toggleCalcItems()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+          </div>
+          <div class="calc-items-list" id="calcItemsList"></div>
+          <div class="calc-summary-row">
+            <span>Товаров</span>
+            <span id="calcCount">0 шт</span>
+          </div>
+          <div class="calc-summary-row total">
+            <span>Итого</span>
+            <span class="calc-total-price" id="calcTotal">0 ₽</span>
+          </div>
+          <a href="checkout.html" class="btn-checkout" id="btnCheckout">Перейти к оформлению</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-grid">
+        <div>
+          <a href="index.html" class="footer-logo">
+            <img src="images/logo-v3.png" alt="ФСЗ" style="height:36px;filter:brightness(0) invert(1);">
+          </a>
+          <p class="footer-desc">Производство и продажа строительных материалов с 2014 года. Резка в размер, доставка, комплексные решения.</p>
+        </div>
+        <div>
+          <h4 class="footer-heading">Товары и услуги</h4>
+          <ul class="footer-list">
+            <li><a href="index.html">Протяжка кабеля в гофру</a></li>
+            <li><a href="index.html">Лягушки из арматуры</a></li>
+            <li><a href="index.html">Лазерная резка металла</a></li>
+            <li><a href="index.html">Профтруба</a></li>
+            <li><a href="index.html">Резка профтрубы в размер</a></li>
+            <li><a href="index.html">Арматура</a></li>
+          </ul>
+        </div>
+        <div>
+          <div style="margin-bottom: 16px;" class="footer-heading hidden lg:block" style="opacity:0;">&nbsp;</div>
+          <ul class="footer-list">
+            <li><a href="index.html">Резка арматуры в размер</a></li>
+            <li><a href="index.html">Доска обрезная</a></li>
+            <li><a href="index.html">Резка доски в размер</a></li>
+            <li><a href="index.html">Обработка огнебиозащитой</a></li>
+            <li><a href="index.html">Пластиковые окна</a></li>
+            <li><a href="index.html">Изготовление ферм</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer-heading">Контакты</h4>
+          <ul class="footer-contact">
+            <li>
+              <a href="tel:+74951234567">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                +7 (495) 123-45-67
+              </a>
+            </li>
+            <li>
+              <a href="mailto:info@fsz.ru">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                info@fsz.ru
+              </a>
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span>2-й шоссейный переулок, 21<br>Москва, ЮВАО</span>
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>Пн–Пт: 8:00 – 19:00<br>Сб: 9:00 – 15:00</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2025 Фабрика строительных заготовок</p>
+        <p>Все права защищены</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Login Modal -->
+  <div class="modal-overlay" id="login-modal">
+    <div class="modal">
+      <button class="modal-close" id="modal-close" aria-label="Закрыть">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h2 class="modal-title">Вход в аккаунт</h2>
+      <p class="modal-subtitle">Введите данные для входа</p>
+      <form id="login-form">
+        <div class="form-group">
+          <label class="form-label" for="login-email">Email или телефон</label>
+          <input type="text" id="login-email" class="form-input" placeholder="example@mail.ru" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="login-password">Пароль</label>
+          <input type="password" id="login-password" class="form-input" placeholder="••••••••" required>
+        </div>
+        <div class="form-row">
+          <label class="form-checkbox">
+            <input type="checkbox" checked>
+            <span>Запомнить меня</span>
+          </label>
+          <a href="#" class="form-link">Забыли пароль?</a>
+        </div>
+        <button type="submit" class="modal-btn">Войти</button>
+      </form>
+      <div class="modal-footer">
+        Нет аккаунта? <a href="#">Зарегистрироваться</a>
+      </div>
+    </div>
+  </div>
+
+<script src="js/data.v2.js?v=18"></script>
+<script src="js/cart.js?v=1"></script>
+<script>
+function getCatImage(catId) {
+  if (typeof CATEGORIES !== 'undefined') {
+    const cat = CATEGORIES.find(c => c.id === catId);
+    return cat ? cat.image : '';
+  }
+  return '';
+}
+
+function renderCart() {
+  const container = document.getElementById('cartItems');
+  const cart = Cart.items;
+
+  if (!cart || cart.length === 0) {
+    container.innerHTML = `
+      <div class="cart-empty">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <h3>Корзина пуста</h3>
+        <p>Добавьте товары из прайс-листа</p>
+        <a href="index.html">← Вернуться к товарам</a>
+      </div>
+    `;
+    updateCalcPanel();
+    return;
+  }
+
+  // Header row with select-all
+  const allChecked = cart.length > 0 && cart.every(i => i.checked !== false);
+  let html = `
+    <div class="cart-header-row">
+      <h1 class="page-title" style="margin:0;">Корзина</h1>
+      <div class="cart-select-all">
+        <input type="checkbox" ${allChecked ? 'checked' : ''} onchange="toggleSelectAll(this)">
+        <span>Выбрать все (${cart.reduce((s, i) => s + (i.qty || 1), 0)} товаров)</span>
+      </div>
+    </div>
+  `;
+
+  html += cart.map((item, idx) => {
+    const img = item.image || getCatImage(item.catId) || '';
+    return `
+    <div class="cart-item">
+      <div class="cart-item-img-wrap">
+        <img src="${img}" alt="" class="cart-item-img" onerror="this.style.display='none'">
+        <input type="checkbox" class="cart-item-checkbox" ${item.checked !== false ? 'checked' : ''}
+               onchange="toggleItemChecked(${idx})">
+      </div>
+      <div class="cart-item-info">
+        <span class="cart-item-name">${item.name}</span>
+        <span class="cart-item-unit">${item.unit} · ${item.price.toLocaleString('ru-RU')} ₽</span>
+      </div>
+      <span class="cart-item-price">${(item.price * item.qty).toLocaleString('ru-RU')} ₽</span>
+      <div class="cart-item-qty">
+        <button onclick="updateItemQty(${idx}, -1)">−</button>
+        <span>${item.qty}</span>
+        <button onclick="updateItemQty(${idx}, 1)">+</button>
+      </div>
+      <button class="cart-item-delete" onclick="removeItem(${idx})" title="Удалить">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+  `;}).join('');
+
+  container.innerHTML = html;
+  updateCalcPanel();
+}
+
+function toggleSelectAll(cb) {
+  const checked = cb.checked;
+  Cart.items.forEach(item => { item.checked = checked; });
+  saveCartState();
+  renderCart();
+}
+
+function updateItemQty(idx, delta) {
+  const item = Cart.items[idx];
+  if (!item) return;
+  const newQty = (item.qty || 1) + delta;
+  if (newQty <= 0) {
+    Cart.items.splice(idx, 1);
+    Cart.items = [...Cart.items];
+    saveCartState();
+  } else {
+    item.qty = newQty;
+    saveCartState();
+  }
+  renderCart();
+}
+
+function removeItem(idx) {
+  Cart.items.splice(idx, 1);
+  Cart.items = [...Cart.items];
+  saveCartState();
+  renderCart();
+}
+
+function toggleItemChecked(idx) {
+  const item = Cart.items[idx];
+  if (item) {
+    item.checked = item.checked === false ? true : false;
+    saveCartState();
+    renderCart();
+  }
+}
+
+function saveCartState() {
+  localStorage.setItem('fsz_cart', JSON.stringify(Cart.items));
+  updateCartBadge();
+}
+
+function updateCalcPanel() {
+  const checked = Cart.items.filter(i => i.checked !== false);
+  const count = checked.reduce((s, i) => s + (i.qty || 1), 0);
+  const total = checked.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0);
+
+  document.getElementById('calcCount').textContent = count + ' шт';
+  document.getElementById('calcTotal').textContent = total.toLocaleString('ru-RU') + ' ₽';
+
+  const list = document.getElementById('calcItemsList');
+  list.innerHTML = checked.map(i => `
+    <div class="calc-list-item">
+      <span class="calc-list-item-name">${i.name}</span>
+      <span class="calc-list-item-qty">${i.qty} шт</span>
+      <span class="calc-list-item-price">${(i.price * i.qty).toLocaleString('ru-RU')} ₽</span>
+    </div>
+  `).join('');
+
+  const btn = document.getElementById('btnCheckout');
+  if (checked.length === 0) {
+    btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none';
+  } else {
+    btn.style.opacity = '1'; btn.style.pointerEvents = 'auto';
+  }
+}
+
+function toggleCalcItems() {
+  const list = document.getElementById('calcItemsList');
+  const btn = document.getElementById('calcToggle');
+  list.classList.toggle('open');
+  btn.classList.toggle('rotated');
+}
+
+// Header scroll
+const header = document.getElementById('header');
+if (header) {
+  window.addEventListener('scroll', () => {
+    header.classList.toggle('scrolled', window.scrollY > 10);
+  }, { passive: true });
+}
+
+// Mobile menu
+const mobileBtn = document.getElementById('mobile-btn');
+const mobileMenu = document.getElementById('mobile-menu');
+if (mobileBtn && mobileMenu) {
+  mobileBtn.addEventListener('click', () => mobileMenu.classList.toggle('open'));
+}
+
+// Login modal
+const loginModal = document.getElementById('login-modal');
+const loginBtns = document.querySelectorAll('.btn-login');
+const modalClose = document.getElementById('modal-close');
+if (loginModal && modalClose) {
+  loginBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => { e.preventDefault(); loginModal.classList.add('active'); document.body.style.overflow = 'hidden'; });
+  });
+  modalClose.addEventListener('click', () => { loginModal.classList.remove('active'); document.body.style.overflow = ''; });
+  loginModal.addEventListener('click', (e) => { if (e.target === loginModal) { loginModal.classList.remove('active'); document.body.style.overflow = ''; } });
+}
+
+renderCart();
+</script>
+</body>
+</html>

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Раскрой погонажа — ФСЗ</title>
+<link rel="stylesheet" href="css/style.css?v=24">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="js/roboto-font.js"></script>
+<style>
+  .calc-page .hero-left { overflow-y: visible; }
+  .calc-page .hero-right { overflow-y: visible; }
+
+  /* Top row: Params | Cuts */
+  .calc-top-row {
+    display: grid; grid-template-columns: auto 1fr; gap: 12px;
+    margin-bottom: 12px; align-items: stretch;
+  }
+  @media (max-width: 1024px) { .calc-top-row { grid-template-columns: 1fr; } }
+
+  .params-box, .cuts-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; box-sizing: border-box; display: flex; flex-direction: column;
+  }
+  .params-box *, .cuts-box * { box-sizing: border-box; }
+
+  .box-title {
+    font-weight: 700; font-size: 15px; color: var(--text);
+    margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .params-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+
+  .input-group { display: flex; flex-direction: column; gap: 4px; }
+  .input-group label {
+    font-size: 11px; font-weight: 600; color: var(--text-light);
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .input-group input {
+    padding: 8px 10px; background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 8px; font-size: 14px; color: var(--text); outline: none;
+    transition: border-color 150ms, box-shadow 150ms; width: 100%;
+  }
+  .input-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
+  /* Cuts with scroll */
+  .cuts-scroll-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .cuts-header {
+    display: grid; grid-template-columns: 1fr 70px 32px; gap: 8px;
+    padding: 0 8px 6px; font-size: 11px; font-weight: 600;
+    color: var(--text-light); text-transform: uppercase; letter-spacing: 0.3px;
+    border-bottom: 1px solid var(--border); margin-bottom: 6px; flex-shrink: 0;
+  }
+  .cuts-list {
+    display: flex; flex-direction: column; gap: 6px;
+    overflow-y: auto; flex: 1; max-height: 88px;
+  }
+  .cut-item {
+    display: grid; grid-template-columns: 1fr 70px 32px; gap: 8px;
+    align-items: center; padding: 6px 8px; background: var(--card-bg);
+    border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0;
+    transition: border-color 200ms, box-shadow 200ms;
+    cursor: pointer;
+  }
+  .cut-item.new-highlight,
+  .cut-item:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
+    background: var(--primary-light);
+  }
+  .cut-item input {
+    padding: 6px 8px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; font-size: 13px; color: var(--text); outline: none; width: 100%;
+  }
+  .cut-delete {
+    width: 28px; height: 28px; border-radius: 6px; background: transparent;
+    border: none; color: var(--text-light); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cut-delete:hover { background: #fee2e2; color: #dc2626; }
+
+  .cuts-footer { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; flex-shrink: 0; }
+  .btn-sm {
+    padding: 8px 14px; background: var(--card-bg); border: 1px dashed var(--border);
+    border-radius: 8px; font-size: 12px; font-weight: 500; color: var(--text-light); cursor: pointer;
+  }
+  .btn-sm:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+  .btn-calc-sm {
+    padding: 8px 16px; background: var(--primary); color: var(--surface);
+    font-size: 12px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer;
+  }
+  .btn-calc-sm:hover { background: var(--primary-hover); }
+  .btn-pdf-sm {
+    padding: 8px 16px; background: var(--text); color: var(--surface);
+    font-size: 12px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer;
+  }
+  .btn-pdf-sm:hover { background: var(--dark); }
+
+  /* Viz */
+  .viz-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 16px; box-sizing: border-box;
+  }
+  #barsVisual { padding: 0; }
+  .stats-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; padding: 0 0px;
+  }
+  @media (max-width: 640px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+  .stat-chip {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; text-align: center;
+  }
+  .stat-chip .val { font-weight: 700; font-size: 16px; color: var(--primary); }
+  .stat-chip .lab { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+
+  .bar-visual { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; width: 80%; margin: 0 auto; }
+  .bar-row { display: flex; flex-direction: column; gap: 6px; padding: 0; width: 100%; }
+  .bar-row .bar-label,
+  .bar-row .bar-total { padding: 0; }
+  .bar-label { font-size: 12px; font-weight: 600; color: var(--text); }
+
+
+  .bar-track {
+    display: flex; height: 38px; background: #e8e5e0;
+    border-radius: 8px; overflow: hidden; border: 1px solid var(--border);
+    width: 100%;
+  }
+  .bar-segment {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; color: #fff;
+    border-right: 2px solid #fff; position: relative;
+    transition: transform 200ms ease;
+  }
+  .bar-segment:hover { transform: scaleY(1.1); z-index: 2; }
+  .bar-segment .seg-label {
+    position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; font-weight: 500; color: rgba(255,255,255,0.85); white-space: nowrap;
+  }
+  .bar-waste {
+    background: repeating-linear-gradient(45deg, #d8d4cf, #d8d4cf 4px, #c8c4bf 4px, #c8c4bf 8px);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: var(--text-light); font-weight: 500;
+  }
+  .bar-total { font-size: 11px; color: var(--text-light); text-align: right; }
+
+  .detail-table { width: 100%; border-collapse: collapse; margin-top: 10px; padding: 0 16px; }
+  .detail-table th, .detail-table td { padding: 6px 10px; text-align: left; font-size: 12px; border-bottom: 1px solid var(--border); }
+  .detail-table th { font-weight: 600; color: var(--text); background: var(--card-bg); }
+  .detail-table td { color: var(--text-light); }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding: 0 16px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-light); }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* Active calc */
+  .calc-item.active { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+</style>
+</head>
+<body class="texture-bg">
+
+<!-- HEADER -->
+<header class="header" id="header">
+  <div class="header-inner">
+    <a href="index.html" class="header-logo" style="display:flex;align-items:center;gap:12px;text-decoration:none;">
+      <img src="images/logo-v3.png" alt="ФСЗ" style="height:42px;width:auto;object-fit:contain;">
+      <div style="display:flex;flex-direction:column;line-height:1.15;">
+        <span style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:0.3px;">Фабрика</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:0.3px;">строительных</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:0.3px;">заготовок</span>
+      </div>
+    </a>
+    <nav class="header-nav">
+      <a href="index.html" class="nav-link">Товары и услуги</a>
+      <a href="articles.html" class="nav-link">Статьи</a>
+      <a href="contacts.html" class="nav-link">Контакты</a>
+    </nav>
+    <div class="header-right">
+      <div class="header-contacts">
+        <a href="tel:+74951234567" class="header-phone">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          +7 (495) 123-45-67
+        </a>
+        <div class="header-address">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          2-й шоссейный переулок, 21
+        </div>
+      </div>
+      <a href="cart.html" class="cart-icon" id="cartIcon" title="Корзина" style="margin-right:4px;text-decoration:none;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span class="cart-badge" id="cartBadge" style="display:none;">0</span>
+      </a>
+      <button class="btn-login">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>
+        Войти
+      </button>
+    </div>
+    <button class="mobile-btn" id="mobile-btn" aria-label="Меню">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="index.html">Товары и услуги</a>
+    <a href="articles.html">Статьи</a>
+    <a href="contacts.html">Контакты</a>
+  </div>
+</header>
+
+<!-- MAIN — hero-grid as index.html -->
+<section class="hero-section calc-page" id="categories">
+  <div class="hero-wrap">
+    <div class="hero-inner">
+      <div class="hero-grid" style="margin-top:0;">
+
+        <!-- Left: Params + Cuts + Viz -->
+        <div class="hero-left">
+
+          <!-- Top: Params | Cuts -->
+          <div class="calc-top-row">
+            <div class="params-box">
+              <div class="box-title">Параметры детали</div>
+              <div class="params-grid">
+                <div class="input-group"><label>Длина детали, мм</label><input type="number" id="stockL" value="6000"></div>
+                <div class="input-group"><label>Ширина реза, мм</label><input type="number" id="kerf" value="3" step="0.5"></div>
+              </div>
+            </div>
+
+            <div class="cuts-box">
+              <div class="box-title">Размеры заготовок</div>
+              <div class="cuts-scroll-wrap">
+                <div class="cuts-header"><span>Длина, мм</span><span>шт</span><span></span></div>
+                <div class="cuts-list" id="cutsList"></div>
+              </div>
+              <div class="cuts-footer">
+                <button class="btn-sm" id="btnAddCut">+ Добавить</button>
+                <button class="btn-calc-sm" id="btnCalculate">Рассчитать</button>
+                <button class="btn-pdf-sm" id="btnExportPDF">Скачать PDF</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom: Viz -->
+          <div class="viz-box">
+            <div class="stats-row" id="statsGrid" style="display:none;">
+              <div class="stat-chip"><div class="val" id="statPieces">0</div><div class="lab">Заготовок</div></div>
+              <div class="stat-chip"><div class="val" id="statBars">0</div><div class="lab">Деталей</div></div>
+              <div class="stat-chip"><div class="val" id="statEff">0%</div><div class="lab">КИМ</div></div>
+              <div class="stat-chip"><div class="val" id="statWaste">0%</div><div class="lab">Отходы</div></div>
+            </div>
+            <div id="barsVisual" style="background:var(--card-bg);border-radius:8px;border:1px solid var(--border);min-height:180px;display:flex;align-items:center;justify-content:center;color:var(--text-light);font-size:13px;">Нажмите «Рассчитать» для визуализации</div>
+            <div class="legend" id="colorLegend"></div>
+            <div id="detailTableWrap" style="display:none; padding: 0 16px;">
+              <div class="box-title" style="margin-top:12px;">Спецификация раскроя</div>
+              <table class="detail-table" id="detailTable">
+                <thead><tr><th>Длина заготовки</th><th>Кол-во</th><th>На детали</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right: Calculator Panel (same as index.html) -->
+        <div class="hero-right">
+          <div class="calc-panel">
+            <div class="calc-header">
+              <div class="calc-header-row">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d64d00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="2" y2="22"/></svg>
+                <span class="calc-header-title">Строительные калькуляторы</span>
+              </div>
+            </div>
+            <div class="calc-grid" id="calc-grid"></div>
+</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div>
+        <a href="index.html" class="footer-logo"><img src="images/logo-v3.png" alt="ФСЗ" style="height:36px;filter:brightness(0) invert(1);"></a>
+        <p class="footer-desc">Производство и продажа строительных материалов с 2014 года. Резка в размер, доставка, комплексные решения.</p>
+      </div>
+      <div><h4 class="footer-heading">Товары и услуги</h4><ul class="footer-list"><li><a href="index.html">Протяжка кабеля в гофру</a></li><li><a href="index.html">Лягушки из арматуры</a></li><li><a href="index.html">Лазерная резка металла</a></li><li><a href="index.html">Профтруба</a></li><li><a href="index.html">Резка профтрубы в размер</a></li><li><a href="index.html">Арматура</a></li></ul></div>
+      <div><h4 class="footer-heading" style="opacity:0;">&nbsp;</h4><ul class="footer-list"><li><a href="index.html">Резка арматуры в размер</a></li><li><a href="index.html">Доска обрезная</a></li><li><a href="index.html">Резка доски в размер</a></li><li><a href="index.html">Обработка огнебиозащитой</a></li><li><a href="index.html">Пластиковые окна</a></li><li><a href="index.html">Изготовление ферм</a></li></ul></div>
+      <div><h4 class="footer-heading">Контакты</h4><ul class="footer-contact"><li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg><a href="tel:+74951234567">+7 (495) 123-45-67</a></li><li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><a href="mailto:info@fsz.ru">info@fsz.ru</a></li><li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>2-й шоссейный переулок, 21</li><li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Пн–Пт: 8:00 – 19:00</li></ul></div>
+    </div>
+    <div class="footer-bottom"><p>&copy; 2025 Фабрика строительных заготовок. Все права защищены.</p></div>
+  </div>
+</footer>
+
+<!-- LOGIN MODAL -->
+<div class="modal-overlay" id="login-modal">
+  <div class="modal">
+    <button class="modal-close" id="modal-close" aria-label="Закрыть"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <h2 class="modal-title">Вход в аккаунт</h2>
+    <p class="modal-subtitle">Введите данные для входа</p>
+    <form id="login-form">
+      <div class="form-group"><label class="form-label" for="login-email">Email или телефон</label><input type="text" id="login-email" class="form-input" placeholder="example@mail.ru" required></div>
+      <div class="form-group"><label class="form-label" for="login-password">Пароль</label><input type="password" id="login-password" class="form-input" placeholder="••••••••" required></div>
+      <div class="form-row"><label class="form-checkbox"><input type="checkbox" checked><span>Запомнить меня</span></label><a href="#" class="form-link">Забыли пароль?</a></div>
+      <button type="submit" class="modal-btn">Войти</button>
+    </form>
+    <div class="modal-footer">Нет аккаунта? <a href="#">Зарегистрироваться</a></div>
+  </div>
+</div>
+
+<script>
+// Mobile menu
+document.getElementById('mobile-btn').addEventListener('click',()=>{document.getElementById('mobile-menu').classList.toggle('open');});
+// Active nav
+(function(){const path=window.location.pathname;const page=path.split('/').pop()||'index.html';document.querySelectorAll('.header-nav .nav-link').forEach(link=>{const href=link.getAttribute('href');if(page===''||page==='index.html'){if(href==='index.html')link.classList.add('active');}else if(href===page){link.classList.add('active');}});})();
+// Login modal
+(function(){const loginModal=document.getElementById('login-modal'),loginBtns=document.querySelectorAll('.btn-login'),modalClose=document.getElementById('modal-close');loginBtns.forEach(btn=>{btn.addEventListener('click',(e)=>{e.preventDefault();loginModal.classList.add('active');document.body.style.overflow='hidden';});});modalClose.addEventListener('click',()=>{loginModal.classList.remove('active');document.body.style.overflow='';});loginModal.addEventListener('click',(e)=>{if(e.target===loginModal){loginModal.classList.remove('active');document.body.style.overflow='';}});document.getElementById('login-form').addEventListener('submit',(e)=>{e.preventDefault();loginModal.classList.remove('active');document.body.style.overflow='';});document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&loginModal.classList.contains('active')){loginModal.classList.remove('active');document.body.style.overflow='';}});})();
+
+// ===== Linear Cutting (First Fit Decreasing) — FULL LOGIC =====
+const COLORS=['#d64d00','#e8875a','#f0a97e','#f5c4a8','#f0e6dc','#5b6377','#8a93a8','#b0b7c9','#2a9d6c','#5cbf9a','#c9a227'];
+let cuts=[{l:1200,qty:3},{l:800,qty:4},{l:1500,qty:2},{l:600,qty:5}];
+let _highlightedCut = null;
+
+function renderCutsList(){
+  document.getElementById('cutsList').innerHTML=cuts.map((c,i)=>`
+    <div class="cut-item ${_highlightedCut===i?'new-highlight':''}" data-idx="${i}" onclick="focusCut(${i})">
+      <input type="number" placeholder="Длина" value="${c.l}" onchange="cuts[${i}].l=+this.value" min="1" onclick="event.stopPropagation()">
+      <input type="number" placeholder="шт" value="${c.qty}" onchange="cuts[${i}].qty=+this.value" min="1" onclick="event.stopPropagation()">
+      <button class="cut-delete" onclick="event.stopPropagation();cuts.splice(${i},1);if(_highlightedCut===i)_highlightedCut=null;else if(_highlightedCut!==null&&_highlightedCut>i)_highlightedCut--;renderCutsList();">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>`).join('');
+}
+function focusCut(i){_highlightedCut=i;renderCutsList();}
+document.getElementById('btnAddCut').addEventListener('click',()=>{cuts.unshift({l:1000,qty:1});_highlightedCut=0;renderCutsList();});
+document.addEventListener('click',(e)=>{if(!e.target.closest('.cuts-list')&&!e.target.closest('#btnAddCut')){_highlightedCut=null;renderCutsList();}});
+
+function calculateCut(){
+  const stockLen=+document.getElementById('stockL').value;
+  const kerf=+document.getElementById('kerf').value;
+  if(!stockLen)return;
+  let pieces=[];
+  cuts.forEach((c,ci)=>{for(let i=0;i<c.qty;i++)pieces.push({l:+c.l,ci});});
+  pieces.sort((a,b)=>b.l-a.l);
+  const bars=[];
+  pieces.forEach(p=>{
+    let placed=false;
+    for(const bar of bars){
+      const used=bar.cuts.reduce((s,c)=>s+c.l+kerf,-kerf);
+      if(used+kerf+p.l<=stockLen){bar.cuts.push(p);placed=true;break;}
+    }
+    if(!placed)bars.push({cuts:[p]});
+  });
+  drawBars(bars,stockLen,kerf);
+  updateStats(bars,stockLen);
+  updateLegend();
+  updateDetailTable(bars);
+  document.getElementById('statsGrid').style.display='grid';
+  document.getElementById('detailTableWrap').style.display='block';
+  window._lastBars=bars;
+  window._lastStockLen=stockLen;
+  window._lastKerf=kerf;
+}
+
+function drawBars(bars,stockLen,kerf){
+  let html='<div class="bar-visual">';
+  bars.forEach((bar,bi)=>{
+    let used=-kerf;bar.cuts.forEach(c=>used+=c.l+kerf);const waste=stockLen-used;
+    html+=`<div class="bar-row"><div class="bar-label">Деталь ${bi+1} — ${stockLen} мм</div><div class="bar-track">`;
+    bar.cuts.forEach(c=>{const pct=(c.l/stockLen*100).toFixed(1);const color=COLORS[c.ci%COLORS.length];html+=`<div class="bar-segment" style="width:${pct}%;background:${color};">${c.l}<span class="seg-label">мм</span></div>`;});
+    if(waste>0){const wastePct=(waste/stockLen*100).toFixed(1);html+=`<div class="bar-waste" style="width:${wastePct}%;flex-shrink:0;">${waste} мм</div>`;}
+    html+=`</div><div class="bar-total">Использовано: ${used} мм | Отход: ${waste} мм (${(waste/stockLen*100).toFixed(1)}%)</div></div>`;
+  });
+  html+='</div>';
+  document.getElementById('barsVisual').innerHTML=html;
+}
+
+function updateStats(bars,stockLen){const totalBars=bars.length;let totalPieces=0,totalUsed=0;bars.forEach(b=>b.cuts.forEach(c=>{totalPieces++;totalUsed+=c.l;}));const eff=(totalUsed/(totalBars*stockLen)*100).toFixed(1);document.getElementById('statBars').textContent=totalBars;document.getElementById('statPieces').textContent=totalPieces;document.getElementById('statEff').textContent=eff+'%';document.getElementById('statWaste').textContent=(100-eff).toFixed(1)+'%';}
+function updateLegend(){document.getElementById('colorLegend').innerHTML=cuts.map((c,i)=>`<div class="legend-item"><div class="legend-dot" style="background:${COLORS[i%COLORS.length]};"></div><span>${c.l} мм x ${c.qty} шт</span></div>`).join('');}
+function updateDetailTable(bars){const tbody=document.querySelector('#detailTable tbody');let html='';const map={};bars.forEach((b,bi)=>b.cuts.forEach(c=>{if(!map[c.l])map[c.l]={count:0,bars:new Set()};map[c.l].count++;map[c.l].bars.add(bi+1);}));Object.entries(map).forEach(([len,info])=>{html+=`<tr><td>${len} мм</td><td>${info.count} шт</td><td>Дет. ${[...info.bars].join(', ')}</td></tr>`;});tbody.innerHTML=html;}
+function exportPDF(){const{jsPDF}=window.jspdf;if(!jsPDF){alert('PDF не загружен');return;}const bars=window._lastBars,stockLen=window._lastStockLen,kerf=window._lastKerf;if(!bars)return;const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});if(window.addRobotoFont)window.addRobotoFont(doc);const now=new Date().toLocaleDateString('ru-RU');const pw=doc.internal.pageSize.getWidth();
+// Header
+doc.setFillColor(214,77,0);doc.rect(0,0,pw,12,'F');doc.setFontSize(8);doc.setTextColor(255,255,255);doc.text('Фабрика строительных заготовок  |  +7 (495) 123-45-67  |  fsz.ru',15,8);
+doc.setFontSize(16);doc.setTextColor(38,42,51);doc.text('Карта раскроя погонажа',15,22);
+doc.setFontSize(9);doc.setTextColor(91,99,119);doc.text(`Дата: ${now}  |  Длина детали: ${stockLen} мм  |  Ширина реза: ${kerf} мм`,15,28);
+// Bars visualization
+let y=35;bars.forEach((bar,bi)=>{if(y>175){doc.addPage('landscape');y=15;}let used=-kerf;bar.cuts.forEach(c=>used+=c.l+kerf);const waste=stockLen-used;const effBar=((used/stockLen)*100).toFixed(1);
+doc.setFontSize(10);doc.setTextColor(38,42,51);doc.text(`Деталь ${bi+1} — ${stockLen} мм`,15,y);doc.setFontSize(8);doc.setTextColor(91,99,119);doc.text(`Использовано: ${used} мм  |  Отход: ${waste} мм (${(100-effBar).toFixed(1)}%)`,15,y+5);
+const barW=pw-30,barH=10,barY=y+9;doc.setFillColor(232,229,224);doc.rect(15,barY,barW,barH,'F');doc.setDrawColor(200,196,191);doc.setLineWidth(0.3);doc.rect(15,barY,barW,barH,'S');let xOff=0;bar.cuts.forEach((c,ci)=>{const segW=(c.l/stockLen)*barW;const rgb={r:parseInt(COLORS[c.ci%COLORS.length].slice(1,3),16),g:parseInt(COLORS[c.ci%COLORS.length].slice(3,5),16),b:parseInt(COLORS[c.ci%COLORS.length].slice(5,7),16)};doc.setFillColor(rgb.r,rgb.g,rgb.b);doc.rect(15+xOff,barY,Math.max(0.5,segW),barH,'F');if(segW>18){doc.setFontSize(8);doc.setTextColor(255,255,255);doc.text(`${c.l} мм`,15+xOff+segW/2,barY+6.5,{align:'center'});}
+  // White separator
+  if(ci<bar.cuts.length-1){doc.setFillColor(255,255,255);doc.rect(15+xOff+segW-1,barY,1.2,barH,'F');}
+  xOff+=segW;});y+=26;});
+// Spec page
+doc.addPage('landscape');doc.setFontSize(8);doc.setFillColor(214,77,0);doc.rect(0,0,pw,12,'F');doc.setTextColor(255,255,255);doc.text('Фабрика строительных заготовок',15,8);doc.setFontSize(14);doc.setTextColor(38,42,51);doc.text('Спецификация раскроя',15,22);
+const totalBars=bars.length;let totalPieces=0,totalUsed=0;bars.forEach(b=>b.cuts.forEach(c=>{totalPieces++;totalUsed+=c.l;}));const effAll=(totalUsed/(totalBars*stockLen)*100).toFixed(1);
+doc.setFontSize(9);doc.setTextColor(91,99,119);doc.text(`Заготовок: ${totalPieces}  |  Деталей: ${totalBars}  |  КИМ: ${effAll}%  |  Отходы: ${(100-effAll).toFixed(1)}%`,15,28);
+const map={};bars.forEach((b,bi)=>b.cuts.forEach(c=>{if(!map[c.l])map[c.l]={count:0,bars:new Set()};map[c.l].count++;map[c.l].bars.add(bi+1);}));const tableData=Object.entries(map).map(([len,info])=>[`${len} мм`,`${info.count} шт`,`Дет. ${[...info.bars].join(', ')}`]);
+if(doc.autoTable){doc.autoTable({head:[['Длина заготовки','Кол-во','На детали']],body:tableData,startY:33,theme:'grid',styles:{fontSize:9,cellPadding:3,font:'Roboto'},headStyles:{fillColor:[214,77,0],textColor:255,fontSize:10,font:'Roboto'}});}
+doc.save('raskroy-pogonazh.pdf');}
+document.getElementById('btnCalculate').addEventListener('click',calculateCut);
+document.getElementById('btnExportPDF').addEventListener('click',exportPDF);
+renderCutsList();calculateCut();
+</script>
+<script src="js/data.v2.js?v=18"></script>
+<script src="js/cart.js?v=1"></script>
+<script src="js/main.js?v=18"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+      document.querySelectorAll('#calc-grid .calc-item').forEach(function(item) {
+        if (item.getAttribute('href') === 'calc-linear.html') item.classList.add('active');
+      });
+    }, 50);
+  });
+</script>
+</body>
+</html>
