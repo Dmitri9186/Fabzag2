@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 36 14% 91%;
+    --foreground: 222 14% 17%;
+    --card: 40 20% 97%;
+    --card-foreground: 222 14% 17%;
+    --popover: 40 20% 98%;
+    --popover-foreground: 222 14% 17%;
+    --primary: 18 100% 42%;
+    --primary-foreground: 40 20% 98%;
+    --secondary: 36 10% 95%;
+    --secondary-foreground: 222 14% 17%;
+    --muted: 36 10% 95%;
+    --muted-foreground: 222 10% 41%;
+    --accent: 36 10% 95%;
+    --accent-foreground: 222 14% 17%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 30 9% 83%;
+    --input: 30 9% 83%;
+    --ring: 18 100% 42%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    background-color: #edeae6;
+    color: #262a33;
+  }
+}
+
+@layer components {
+  .card-hover {
+    transition: transform 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(38, 42, 51, 0.12);
+    background-color: #fcfbfa;
+  }
+
+  .calc-item-hover {
+    transition: background-color 150ms ease, border-color 150ms ease;
+  }
+
+  .calc-item-hover:hover {
+    background-color: #ffe0cc;
+    border-color: #d64d00;
+  }
+
+  .nav-link {
+    transition: color 150ms ease;
+  }
+
+  .nav-link:hover {
+    color: #d64d00;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md font-semibold text-sm transition-colors duration-150;
+    background-color: #d64d00;
+    color: #fcfbfa;
+  }
+
+  .btn-primary:hover {
+    background-color: #b83f00;
+  }
+
+  .texture-bg {
+    background-color: #edeae6;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
